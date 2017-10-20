@@ -10,8 +10,8 @@
     real(8) :: err_prev = 1, tau_m
     
     ! variables
-    public  :: ni, ne, nm, nt, tau_m
-    private :: ki, Ti, mui, ke, km, kt, err_prev
+    public  :: ni, Ti, mui, ne, nm, nt, tau_m
+    private :: ki, ke, km, kt, err_prev
     
     ! subroutines
     public  :: p_step, p_init
@@ -196,23 +196,22 @@
     term_st1 = - (fluxe_x(1) * Ex + fluxe_y(1) * Ey)
 
     ! -me/mg nu_e (Te - Tg)
-    term_st2 = nt(i,j,2) * nu * me/mi
+    term_st2 = - nt(i,j,2) * nu * me/mi
 
     ! reactions
-    term_st3 =    h_ir * k_ir * ninf * ne(i,j,2) &
-                + h_si * k_si * nm(i,j,2) * ne(i,j,2) &
-                + h_ex * k_ex * ninf * ne(i,j,2) &
-                + h_sc * k_sc * nm(i,j,2) * ne(i,j,2)
+    term_st3 = - h_ir * k_ir * ninf * ne(i,j,2) &
+               - h_si * k_si * nm(i,j,2) * ne(i,j,2) &
+               - h_ex * k_ex * ninf * ne(i,j,2) &
+               - h_sc * k_sc * nm(i,j,2) * ne(i,j,2)
     
     ! evaluate expression
     ki(i,j,stage) = -dfluxi_dx - dfluxi_dy + term_sie
     ke(i,j,stage) = -dfluxe_dx - dfluxe_dy + term_sie
-    kt(i,j,stage) = -dfluxt_dx - dfluxt_dy + term_st1 - term_st2 - term_st3
+    kt(i,j,stage) = -dfluxt_dx - dfluxt_dy + term_st1 + term_st2 + term_st3
     km(i,j,stage) = -dfluxm_dx - dfluxm_dy + term_sm
     
     if (stage == 5) then
-        tau_m = min(tau_m, eps0 * phi0 * x0 / e  &
-                / (get_mue(Te) * ne(i,j,2) + mui(i,j) * ni(i,j,2)))
+        tau_m = min(tau_m, 1.0 / (get_mue(Te) * ne(i,j,2) + mui(i,j) * ni(i,j,2)))
     end if
     
     if (isnan(ki(i,j,stage))) then
@@ -369,7 +368,20 @@
                           ni(i,j-1:j,2), Ti(i,j-1:j))
             
             ! Flux at j + 1/2
-            fluxi_y(2) = 0
+            if (right_wall) then
+                if (Ey(2) > 0) then
+                    a = 1
+                else
+                    a = 0
+                end if
+                
+                vi = sqrt((16.0 * e * phi0 * Ti(i,j)) / (3.0 * pi * me)) * t0 / x0
+            
+                fluxi_y(2) = (2 * a - 1) * mui(i,j) * Ey(2) * ni(i,j,2) &
+                             + 0.5 * vi * ni(i,j,2)
+            else
+                fluxi_y(2) = 0
+            end if
         end if
     end if
     
@@ -508,7 +520,7 @@
             
             ng = ng * Ti(i,j)
             fluxt_x(2) = - (2 * a - 1) * mut(2) * Ex(2) * nt(i,j,2) &
-                         + 1.0/3.0 * ve * nt(i,j,2) &
+                         + 1.0/3.0 * ve * (nt(i,j,2) - ng) &
                          - 2 * (1 - a) * gam * Ti(i,j) * fluxi
 
         ! - vacuum -
@@ -584,11 +596,30 @@
                            nt(i,j-1:j,2), Te(1:2))
             
             ! Flux at j + 1/2
-            fluxe_y(2) = 0
-            fluxt_y(2) = 0
+            if (right_wall) then
+                if (-Ey(2) > 0) then
+                    a = 1
+                else
+                    a = 0
+                end if
+                
+                mue(2) = get_mue(Te(2))
+                mut(2) = 5./3. * mue(2)
+                ve = sqrt((16.0 * e * phi0 * Te(2)) / (3.0 * pi * me)) * t0 / x0
+                
+                fluxe_y(2) = - (2 * a - 1) * mue(2) * Ey(2) * ne(i,j,2) &
+                             + 0.5 * ve * ne(i,j,2)
+            
+                fluxt_y(2) = - (2 * a - 1) * mut(2) * Ey(2) * nt(i,j,2) &
+                             + 1.0/3.0 * ve * nt(i,j,2)
+            else
+                fluxe_y(2) = 0
+                fluxt_y(2) = 0
+            end if
         end if
     end if
     end subroutine
+    
 
 ! *** Calculate Metastable Flux ***
     subroutine calc_fluxm(g, i, j, fluxm_x, fluxm_y)
@@ -681,7 +712,7 @@
     
     end subroutine
     
-! *** Update Ion Temperatuer and Mobility ***
+! *** Update Ion Temperature and Mobility ***
     subroutine upd_Timui(g, phi)
     type(grid), intent(in) :: g
     real(8), intent(in) :: phi(:,:)
