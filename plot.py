@@ -26,7 +26,7 @@ colors = [ cm.plasma(x) for x in cm_subsection ]
 path = 'output/'
 if len(sys.argv) > 1:
     res = sys.argv[1]
-    path = 'output/res_' + res
+    path = 'output/1d_res_' + res
 
 x = np.fromfile(path + '/meshx.dat',dtype=float)
 y = np.fromfile(path + '/meshy.dat',dtype=float)
@@ -82,8 +82,8 @@ yloc = 0
 tloc = [ts/10,ts/2,-1]
 tloc[0] = np.argmin(np.abs(t-0.2))
 
-nxticks = np.array([1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20])
-nxlim   = [3e12, 5e17]
+nxticks = np.array([1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20])
+nxlim   = [3e9, 5e15]
 
 phticks = np.arange(0,600,100)
 phlim = [-50, 550]
@@ -280,12 +280,12 @@ if mui.max() > 0.01:
     ax1.set_yticks(yticks)
     ax1.legend(frameon=False, loc='best')
     
-    v = np.linspace(0,mui.max()*1.01,30)
-    im = ax2.contourf(tt,xx,np.maximum(np.log10(ti[:,yloc,:]),v[0]),v,
+    v = np.linspace(0.04,0.13,30)
+    im = ax2.contourf(tt,xx,np.maximum(mui[:,yloc,:],v[0]),v,
                       cmap='plasma', zorder=-20)
     ax2.set_xlabel('Time ($\mu$s)')
     plt.suptitle(r'(g) Ion Mobility ($\mu_i$)')
-    v = np.arange(0, v[-1], v[-1]/5)
+    v = np.arange(0.04, 0.131, 0.015)
     clb = fig.colorbar(im, ticks=v)
     clb.ax.set_title(r'($m^2/V s$)')
     ax2.set_xscale('log')
